@@ -1,13 +1,18 @@
 import { Injectable,ForbiddenException } from "@nestjs/common";
-import { PrimsaService } from "src/primsa/primsa.service";
+import { PrismaService } from "src/prisma/prisma.service";
 import { AuthDto } from "./dto";
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { JwtService } from "@nestjs/jwt";
+import { ConfigService } from '@nestjs/config';
 import * as argon from 'argon2';
 
 @Injectable()
 
 export class AuthService{
- constructor(private primsa:PrimsaService){}  
+ constructor(private primsa:PrismaService, 
+  private jwt:JwtService,
+  private config: ConfigService
+  ){}  
  async signup (dto: AuthDto){
    // Generate the Password Hash
     const hash  = await argon.hash(dto.password);
@@ -20,10 +25,8 @@ export class AuthService{
          }
        })
    
-       delete user.password;
-   
       //retutn the saved user 
-       return user;
+       return this.signToken(user.id,user.password);
    }
    
     catch (error) {
@@ -38,18 +41,46 @@ export class AuthService{
       throw error;
     }
  }
- signIn (){
+ async signIn(dto: AuthDto){
     // find USer By email
+   const user = await this.primsa.user.findUnique({
+      where:{
+        email: dto.email
+      },
+    });
     // If Doesnt Exists Throw Exception
-
+    if(!user){
+      throw new ForbiddenException("Incorrect Email");
+    }
 
     //compare Password
-    // if Password Incorrect  throw exception
-
+     
+    const passwordValid  = await argon.verify(user.password,dto.password);
+    
+   // if Password Incorrect  throw exception
+  
+   if(!passwordValid){
+      throw new ForbiddenException("Incoorect Password")
+    }
 
     //send back user
 
-    // find User 
-    return{msg:"I have singn In"};
+    return this.signToken(user.id,user.email);
+ }
+  async signToken(userId:string,email:string):Promise<{access_Token: string}>{
+    const payload ={
+      sub: userId,
+      email
+    };
+    const secret = this.config.get('JWT_SECRET')
+
+    const token  = await this.jwt.signAsync(payload,{
+      expiresIn:"15m",
+      secret:secret
+    });
+
+    return {
+      access_Token: token
+    }
  }
 }
