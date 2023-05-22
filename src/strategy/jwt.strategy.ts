@@ -1,7 +1,8 @@
+import { Injectable } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from "src/prisma/prisma.service";
-
+@Injectable()
 export class JwtStrage extends PassportStrategy(Strategy,'jwt'){
 
     constructor(private prisma:PrismaService){
@@ -17,8 +18,8 @@ export class JwtStrage extends PassportStrategy(Strategy,'jwt'){
       // let str = JSON.stringify(payload);
       // str = JSON.stringify(payload, null, 4); // (Optional) beautiful indented output.
       // console.log(str);
-      // await this.prisma.user.
-      const user = await this.prisma.user.findFirst({
+     //  await this.prisma.u
+      const user = await this.prisma.user.findUnique({
         where: {
           email: payload.email,
         },
@@ -27,7 +28,6 @@ export class JwtStrage extends PassportStrategy(Strategy,'jwt'){
           id: true,
         }
       })
-      console.log("\nFirst Guard Will be Checked: ",user,"\nGuard-Payload: ",payload);
       return user;
     }
 }
